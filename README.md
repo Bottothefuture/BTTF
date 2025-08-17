@@ -35,6 +35,6 @@ CRITICAL FEATURES:
 
 
 ## TEAM MEMBERS
- * Samesh Deshmukh - Lead Programmer - samesh.kostub@gmail.com
- * Rohan Mishra - Lead Robotics Expert - rohanmishra.email@gmail.com
- * Aadi Khemka(MIA) - Lead Desginer - aadikhemka2020@gmail.com
+ * Samesh Deshmukh - samesh.kostub@gmail.com
+ * Rohan Mishra  - rohanmishra.email@gmail.com
+ * Aadi Khemka - aadikhemka2020@gmail.com
