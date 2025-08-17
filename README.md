@@ -26,9 +26,14 @@ HARDWARE:
 - L298N Motor Driver --> Controls the DC Hobby Gear Motors and ensures they have the adequate power.
 - IMU [MPU6050] --> Calculates the orientation of the vehicles and feeds that information to the ESP to calculate how many turns have been acheived by the vehicle
 
-IMPORTANT ATTRIBUTES: 
+CRITICAL FEATURES: 
 - We use an IMU (Intertial Measurment Unit) to calculate how many turns the car has taken and to ensure stabilization
 - Front wheels are used for steering and the back wheels are using for powering the car.
 - The car has two ultrasonic sensors attached to the front of the car. One faces the right and the other faces forward. These ultrasonic sensors dictate how the car moves and detects obstacles in the car's path
+- 
 
-_This part must be filled by participants with the technical clarifications about the code: which modules the code consists of, how they are related to the electromechanical components of the vehicle, and what is the process to build/compile/upload the code to the vehicle’s controllers._
+
+## TEAM MEMBERS
+ * Samesh Deshmukh - Lead Programmer - samesh.kostub@gmail.com
+ * Rohan Mishra - Lead Robotics Expert - rohanmishra.email@gmail.com
+ * Aadi Khemka(MIA) - Lead Desginer - aadikhemka2020@gmail.com
