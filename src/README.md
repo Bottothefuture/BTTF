@@ -1,6 +1,13 @@
-Control software
+WRO Future Engineer's Self Driving Vehicle - Open Round Code:
 ====
+- This folder contains the reference code for the Open Challenge Round using an ESP32
+- This code implements logic like steering, motor control and sensor integration to help this vehicle navigate.
 
-This directory must contain code for control software which is used by the vehicle to participate in the competition and which was developed by the participants.
+# FILES
+---
 
-All artifacts required to resolve dependencies and build the project must be included in this directory as well.
+| FILE | DETAILS |
+|------|---------|
+| **main.c++** | Main code which is run for the Open Challenge Round. This code is in Platform IO Format. |
+
+---
