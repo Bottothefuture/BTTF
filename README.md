@@ -13,14 +13,22 @@ This repository contains engineering materials of a self-driven vehicle's model 
 * `models` is for the files for models used by 3D printers, laser cutting machines and CNC machines to produce the vehicle elements. If there is nothing to add to this location, the directory can be removed.
 * `other` is for other files which can be used to understand how to prepare the vehicle for the competition. It may include documentation how to connect to a SBC/SBM and upload files there, datasets, hardware specifications, communication protocols descriptions etc. If there is nothing to add to this location, the directory can be removed.
 
-## Introduction
+## SUMMARY
+- This project is a **self driving vehicle** which we have designed for the *WRO Future Engineers 2025 Challenge*
+
+HARDWARE:
+- ESP32 Dev Board --> Microcontroller which controls the motor and makes decisions based on the values given by the ultrasonic sensors.
+- x2 3.7 Volt Lithium Ion Batterys --> Power the servo motor for steering.
+- x1 LiPo Battery [11V] --> Powers the ESP32 and the L298N Motor Driver
+- x2 Ultrasonic Sesnors: Detect obstacles around the vehicle.
+- DC Hobby Gear Motor --> Powers the rear-wheels so that the car can move forward and backward.
+- Servo Motor --> Controls the steering of the car and ensures accurate turning.
+- L298N Motor Driver --> Controls the DC Hobby Gear Motors and ensures they have the adequate power.
+- IMU [MPU6050] --> Calculates the orientation of the vehicles and feeds that information to the ESP to calculate how many turns have been acheived by the vehicle
+
+IMPORTANT ATTRIBUTES: 
+- We use an IMU (Intertial Measurment Unit) to calculate how many turns the car has taken and to ensure stabilization
+- Front wheels are used for steering and the back wheels are using for powering the car.
+- The car has two ultrasonic sensors attached to the front of the car. One faces the right and the other faces forward. These ultrasonic sensors dictate how the car moves and detects obstacles in the car's path
 
 _This part must be filled by participants with the technical clarifications about the code: which modules the code consists of, how they are related to the electromechanical components of the vehicle, and what is the process to build/compile/upload the code to the vehicle’s controllers._
-
-## How to prepare the repo based on the template
-
-_Remove this section before the first commit to the repository_
-
-1. Clone this repo by using the `git clone` functionality.
-2. Remove `.git` directory
-3. [Initialize a new public repository on GitHub](https://github.com/new) by following instructions from "create a new repository on the command line" section (appeared after pressing "Create repository" button).
