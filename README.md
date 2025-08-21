@@ -31,7 +31,6 @@ CRITICAL FEATURES:
 - Front wheels are used for steering and the back wheels are using for powering the car.
 - The car has two ultrasonic sensors attached to the front of the car. One faces the right and the other faces forward. These ultrasonic sensors dictate how the car moves and detects obstacles in the car's path
 - POWER: 2S LiPo for powering the DC Hobby Gear Motor and ESP32, 2x 3.7 Li-Ion Batterys for powering the servo motors.
-- 
 
 
 ## TEAM MEMBERS
