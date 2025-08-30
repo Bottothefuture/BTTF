@@ -6,7 +6,6 @@
 #include <WiFiServer.h>
 
 // ==== PIN Definitions ====
-#define BUTTON_PIN 15  // GPIO pin for the push button
 
 #define IN1 13
 #define IN2 12
@@ -52,6 +51,8 @@ const char* password = "yolabs4321";
 // ==== Telnet Server ====
 WiFiServer telnetServer(23);
 WiFiClient telnetClient;
+
+bool start = false;
 
 // ==== Setup Telnet Logging ====
 void setupWiFiTelnet() {
@@ -166,6 +167,12 @@ void turnLeft() {
   delay(500); // Allow time for the servo to turn
 }
 
+void turnRight() {
+  steeringservo.write(SERVO_LEFT);
+  driveForward(150); // Adjust speed as needed
+  delay(500); // Allow time for the servo to turn
+}
+
 void turnRight90Degrees() {
   Serial.println("=== STARTING RIGHT TURN ===");
   //stopMotors();
@@ -196,7 +203,7 @@ void turnRight90Degrees() {
   const unsigned long MAX_TURN_TIME = 10000; // Maximum 10 seconds for safety
 
   // Keep turning until we've changed 85-90 degrees (account for some error)
-  while (millis() - turnStartTime < MAX_TURN_TIME && abs(angleChanged) < 90) {
+  while (millis() - turnStartTime < MAX_TURN_TIME && abs(angleChanged) < 100) {
     mpu6050.update();
     float currentYaw = getCompensatedYaw();
     
@@ -430,10 +437,9 @@ void completeFirstLap() {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   setupWiFiTelnet();
 
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(ENA, OUTPUT);
@@ -442,12 +448,6 @@ void setup() {
   pinMode(TRIG_RIGHT, OUTPUT);
   pinMode(ECHO_RIGHT, INPUT);
 
-  Serial.println("Waiting for button press to start...");
-  while (digitalRead(BUTTON_PIN) == HIGH) {
-    delay(10);
-  }
-
-  Serial.println("Button pressed, starting setup...");
 
   // Initialize Servo
   steeringservo.attach(SERVO_PIN);
@@ -475,83 +475,97 @@ void setup() {
 
 
 void loop() {
-  // Handle telnet client and update sensors
-  handleTelnetClient();
-  mpu6050.update();
-  
-  // Manual control code removed for clean autonomous operation
-  
-  float yawNow = getCompensatedYaw(); // Use compensated yaw
-  float distFront = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
-  float distRight = readUltrasonicDistance(TRIG_RIGHT, ECHO_RIGHT);
 
-  // Log sensor data for debugging
-  String statusMsg = "Yaw:" + String(yawNow, 1) + ", Front:" + String(distFront, 1) + ", Right:" + String(distRight, 1) + 
-           ", Turns:" + String(turn_count) + ", Laps:" + String(lap_count);
-  
-  if (returning_to_start) {
-    statusMsg += ", RETURNING TO START (Target: " + String(starting_front_distance, 1) + "cm)";
+  if (Serial.available()) {
+    String data = Serial.readString();
+    data.trim();
+    Serial.println("Echo: " + data);
+
+    if (data == "START") {
+      start = true;
   }
-  
-  logPrint(statusMsg);
-  
-  // Check if we're returning to start and have reached starting position
-  if (returning_to_start && starting_position_recorded) {
-    if (isAtStartingPosition(distFront)) {
-      Serial.println("========================");
-      Serial.println("STARTING POSITION REACHED!");
-      Serial.print("Current front distance: ");
-      Serial.print(distFront, 1);
-      Serial.print("cm (Target: ");
-      Serial.print(starting_front_distance, 1);
-      Serial.println("cm)");
-      Serial.println("MISSION COMPLETE - STOPPING VEHICLE");
-      Serial.println("========================");
-      
-      stopMotors();
-      while (true) {
-        delay(1000);
-        Serial.println("Vehicle stopped at starting position");
+  }
+
+  while (start) {
+
+    // Handle telnet client and update sensors
+    handleTelnetClient();
+    mpu6050.update();
+    
+    // Manual control code removed for clean autonomous operation
+    
+    float yawNow = getCompensatedYaw(); // Use compensated yaw
+    float distFront = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
+    float distRight = readUltrasonicDistance(TRIG_RIGHT, ECHO_RIGHT);
+
+    // Log sensor data for debugging
+    String statusMsg = "Yaw:" + String(yawNow, 1) + ", Front:" + String(distFront, 1) + ", Right:" + String(distRight, 1) + 
+            ", Turns:" + String(turn_count) + ", Laps:" + String(lap_count);
+    
+    if (returning_to_start) {
+      statusMsg += ", RETURNING TO START (Target: " + String(starting_front_distance, 1) + "cm)";
+    }
+    
+    logPrint(statusMsg);
+    
+    // Check if we're returning to start and have reached starting position
+    if (returning_to_start && starting_position_recorded) {
+      if (isAtStartingPosition(distFront)) {
+        Serial.println("========================");
+        Serial.println("STARTING POSITION REACHED!");
+        Serial.print("Current front distance: ");
+        Serial.print(distFront, 1);
+        Serial.print("cm (Target: ");
+        Serial.print(starting_front_distance, 1);
+        Serial.println("cm)");
+        Serial.println("MISSION COMPLETE - STOPPING VEHICLE");
+        Serial.println("========================");
+        
+        stopMotors();
+        while (true) {
+          delay(1000);
+          Serial.println("Vehicle stopped at starting position");
+        }
       }
     }
-  }
-  
-  // Check lap completion
-  checkLapCompletion();
-  
-  // Main navigation logic with left/right turn
-  if (distFront < 25) {
-    // Too close - move backward to safe distance first
-    Serial.println("EMERGENCY: Too close to obstacle!");
-    moveBackwardToSafeDistance();
-    return; // Skip rest of loop iteration
-  }
-  else if (distFront < 75 && distRight > 90) {
-      // Right turn
-      Serial.println("Front obstacle detected, right open, turning right 90 degrees");
-      turnRight90Degrees();
-      driveForward(150);
-      delay(300);
+    
+    // Check lap completion
+    checkLapCompletion();
+    
+    // Main navigation logic with left/right turn
+    if (distFront < 25) {
+      // Too close - move backward to safe distance first
+      Serial.println("EMERGENCY: Too close to obstacle!");
+      moveBackwardToSafeDistance();
+      return; // Skip rest of loop iteration
     }
-  else if (distFront < 70 && distRight < 75) {
-      // Left turn
-      Serial.println("Front obstacle detected, right blocked, turning left");
-      leftTurn();
+    else if (distFront < 75 && distRight > 90) {
+        // Right turn
+        Serial.println("Front obstacle detected, right open, turning right 90 degrees");
+        turnRight90Degrees();
+        driveForward(150);
+        delay(300);
+      }
+    else if (distFront < 70 && distRight < 75) {
+        // Left turn
+        Serial.println("Front obstacle detected, right blocked, turning left");
+        leftTurn();
+        driveForward(150);
+        delay(300);
+      }
+    else if (distRight > 90) {
+      // If right sensor detects opening (>90cm) AND no front obstacle, continue straight
+      Serial.println("Right opening detected, going straight");
+      steeringservo.write(SERVO_STRAIGHT);
       driveForward(150);
-      delay(300);
+    } 
+    else {
+      // Default: drive forward
+      Serial.println("Driving forward");
+      steeringservo.write(SERVO_STRAIGHT);
+      driveForward(150);
     }
-  else if (distRight > 90) {
-    // If right sensor detects opening (>90cm) AND no front obstacle, continue straight
-    Serial.println("Right opening detected, going straight");
-    steeringservo.write(SERVO_STRAIGHT);
-    driveForward(150);
-  } 
-  else {
-    // Default: drive forward
-    Serial.println("Driving forward");
-    steeringservo.write(SERVO_STRAIGHT);
-    driveForward(150);
+    
+    delay(100); // Control loop timing
   }
-  
-  delay(100); // Control loop timing
 }
