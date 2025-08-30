@@ -3,6 +3,22 @@ Engineering materials
 
 This repository contains engineering materials of a self-driven vehicle's model participating in the WRO Future Engineers competition in the season 2022.
 
+# Table of Contents
+
+1.  [Repository Contents](#-repository-contents)
+2.  [Project Summary](#-summary-)
+3.  [Key Features](#-key-features-)
+4.  [Hardware Components](#-hardware-)
+5.  [Mobility System](#mobility-system-)
+    1.  [Steering](#steering)
+    2.  [Motor Drive](#motor-drive)
+    3.  [Power System](#power)
+6.  [Detection System](#detection-system-)
+    1.  [Sensors](#sensors)
+    2.  [Object Detection Pipeline](#object-detection)
+7.  [Team Members](#team-members)
+---
+
 # Content 📁📁
 
 * `t-photos` contains 2 photos of the team (an official one and one funny photo with all team members)
