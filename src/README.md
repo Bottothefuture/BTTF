@@ -5,11 +5,33 @@ WRO Future Engineer's Self Driving Vehicle - Open Round Code:
 
 ---
 ## FILE OVERVIEW 📂🗂️
-A[src]
-B[OpenRoundChallenge]
-C[ObstacleAvoidingChallenge]
-A --> B
-A --> C
+```mermaid
+flowchart TD;
+   A[src]
+   B[**Round 1 Code:**
+   OpenRoundChallenge]
+   C[**Round 2 Code:**
+   ObstacleAvoidingChallenge]
+   A --> B
+   A --> C
+   D[**src**]
+   E[**RaspberryPi**]
+   C --> D
+   C --> E
+   F[**raspberrypi**]
+   G[**src**]
+   B --> F
+   B --> G
+   H[**switch_control.py**]
+   F --> H
+   I[**main.cpp**]
+   G --> I
+   J[**ObstacleDetection.py**]
+   E --> J
+   K[**main.cpp**]
+   D-->K
+   
+```
 
 ## HARDWARE USED ⚙️⚙️
 - Microcontroller: [ESP-WROOM-32] **ESP32 Dev Board**
