@@ -88,6 +88,16 @@ This repository contains engineering materials of a self-driven vehicle's model 
   - **Raspberry Pi**: The Raspberry Pi recieves the footage sent by the `RPi Cam` and analyzes it detecting obstacles using `OpenCV`. The Raspberry Pi then sends this information to the ESP allowing it to adjust the motors suitably
   - **UltraSonic Sensors**: Used for `precise wall-detection` to ensure that out car turns and dodges the walls.
 
+# SOFTWARE 💻💻:
+
+### Video Feed Analysis:
+- For processing our video feed we used `Python's OpenCV`
+- We used serial communication to establish a data channel between the RaspberryPi and the ESP32. This allowed them to transfer data efficiently and effectively
+
+### Driving Strategies:
+- IMU and accurate calculations to ensure that the bot completes the correct amount of turns before stopping
+- `Wall Following` and `Corner Detection` to ensure out car is able to steer clear of the walls and stay on the correct path.
+     
 ## TEAM MEMBERS
  * Samesh Deshmukh - samesh.kostub@gmail.com
  * Rohan Mishra  - rohanmishra.email@gmail.com
