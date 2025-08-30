@@ -30,15 +30,33 @@ flowchart TD;
    E --> J
    K[**main.cpp**]
    D-->K
-   
 ```
+### Round 1: OpenRoundChallenge
+
+|FILE|DETAILS|
+|----|-------|
+|src |The folder containing the code which we upload into the `ESP32`|
+|**main.cpp**|The code which is uploaded into the `ESP32` that controls the bot|
+|raspberrypi|The folder which is uploaded into the `RaspberryPi`|
+|**switch_control.py**|The code which we use for the switch to start the bot|
+
+### Round 2: ObstacleAvoidingChallenge
+
+|FILE|DETAILS|
+|----|-------|
+|src |The folder containing the code which we upload into the `ESP32`|
+|**main.cpp**|The code which is uploaded into the `ESP32` that controls the bot|
+|RaspberryPi|The folder which is uploaded into the `RaspberryPi`|
+|**ObstacleDetection.py**|The code that `detects obstacles` in the car's path and relays that information to the `ESP32`|
+
+---
 
 ## HARDWARE USED ⚙️⚙️
 - Microcontroller: [ESP-WROOM-32] **ESP32 Dev Board**
 - Steering: **Servo Motor**
 - IMU (**BNO055**)
 - **Raspberry Pi5**
-- **RPi Cam** (For Obstacle Detection)
+- **RPi Cam** (For Obstacle Detection In The Second Round)
 - Sensors: Ultrasonic Sensors [**One facing front and the other facing to the right**]
 - **DC Motor** (Rear Wheel Movement)
 - **L298N** Motor Driver
@@ -46,10 +64,12 @@ flowchart TD;
 
 ## HOW TO USE THIS CODE 🧑‍💻🧑‍💻
 
+###Challenge 1: OpenRoundChallenge
+---
 METHOD: Using PlatformIO -->
 ===
 1. Install `PlatformIO` : [**VS Code Extension**]
-2. Open the project folder [**BTTF_Car**] in PlatformIO
+2. Open the project folder [**OpenRoundChallenge**] in PlatformIO
 3. Connect your `ESP32 Board` via USB and in `platformio.ini` confirm your board settings [`board: esp32dev`]
 4. **BUILDING & UPLOADING:**
    ```bash
