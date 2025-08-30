@@ -41,7 +41,8 @@ This repository contains engineering materials of a self-driven vehicle's model 
 - **L298N Motor Driver** --> Controls the DC Hobby Gear Motors and ensures they have the adequate power.
 - **IMU [BNO055]** --> Calculates the orientation of the vehicles and feeds that information to the ESP to calculate how many turns have been acheived by the vehicle
 
-### Mobility System 🏎️: 
+### Mobility System 🏎️:
+
   #### Steering: 
   - **Mechanism**: Front wheels turn to steer.
   - **Actuator**: A precise servo motor.
@@ -59,8 +60,17 @@ This repository contains engineering materials of a self-driven vehicle's model 
   - x1 LiPo Battery [11V] --> Powers the ESP32 and the L298N Motor Driver
   - Powerbank --> Powers the RaspberryPi
 
+### Detection System 🕵️🕵️
 
-  
+  #### Sensors:
+  - **x2 UltraSonic Sensors**: Detects obstacles around the vehicle. One is facing right and the other is facing foward
+  - **IMU (BNO055)**: Checks the orienation of the vehicle and gives feedback to the car. This allows the car to calculate the number of turns it has taken and allows the vehicle to stop accordingly
+  - **RPi Cam**: Provides a live video feed to the RaspberryPi which is used to detect obstacles.
+
+  #### Object Detection:
+  - **RPi Cam**: Provides us with real-time footage which is then sent to the Raspberry Pi
+  - **Raspberry Pi**: The Raspberry Pi recieves the footage sent by the `RPi Cam` and analyzes it detecting obstacles using `OpenCV`. The Raspberry Pi then sends this information to the ESP allowing it to adjust the motors suitably
+  - **UltraSonic Sensors**: Used for `precise wall-detection` to ensure that out car turns and dodges the walls.
 
 ## TEAM MEMBERS
  * Samesh Deshmukh - samesh.kostub@gmail.com
