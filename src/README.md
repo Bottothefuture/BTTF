@@ -8,7 +8,7 @@ WRO Future Engineer's Self Driving Vehicle - Open Round Code:
 ## HARDWARE USED ⚙️⚙️
 - Microcontroller: [ESP-WROOM-32] **ESP32 Dev Board**
 - Steering: **Servo Motor**
-- IMU (**MPU6050**)
+- IMU (**BNO055**)
 - Sensors: Ultrasonic Sensors [**One facing front and the other facing to the right**]
 - **DC Motor** (Rear Wheel Movement)
 - **L298N** Motor Driver
