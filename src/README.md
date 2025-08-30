@@ -4,6 +4,7 @@ WRO Future Engineer's Self Driving Vehicle - Open Round Code:
 - This code implements logic like steering, motor control and sensor integration to help this vehicle navigate.
 
 ---
+##FILE OVERVIEW 📂🗂️
 
 ## HARDWARE USED ⚙️⚙️
 - Microcontroller: [ESP-WROOM-32] **ESP32 Dev Board**
