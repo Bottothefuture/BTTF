@@ -62,7 +62,7 @@ This repository contains engineering materials of a self-driven vehicle's model 
 - **Servo Motor** --> Controls the steering of the car and ensures accurate turning.
 - **L298N Motor Driver** --> Controls the DC Hobby Gear Motors and ensures they have the adequate power.
 - **IMU [BNO055]** --> Calculates the orientation of the vehicles and feeds that information to the ESP to calculate how many turns have been acheived by the vehicle
-
+- **Step-Down Converter** --> Steps down the voltage to 12V
 ## Mobility System
 
 ### Steering
@@ -81,6 +81,7 @@ This repository contains engineering materials of a self-driven vehicle's model 
 - x2 3.7 Volt Lithium Ion Batteries (These batteries power the servo motor for steering)
 - x1 LiPo Battery [11V] --> Powers the ESP32 and the L298N Motor Driver
 - Powerbank --> Powers the RaspberryPi
+- Bug [Step Down] Converter --> Reduces the voltage to 12V to ensure safety of the components
 
 ## Detection System
 
