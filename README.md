@@ -5,21 +5,23 @@ This repository contains engineering materials of a self-driven vehicle's model 
 
 # Table of Contents
 
-1.  [Repository Contents](-#content-📁📁)
-2.  [Project Summary](#-summary)
-3.  [Key Features](#-key-features-)
-4.  [Hardware Components](#-hardware-)
-5.  [Mobility System](#mobility-system-)
-    1.  [Steering](#steering)
-    2.  [Motor Drive](#motor-drive)
-    3.  [Power System](#power)
-6.  [Detection System](#detection-system-)
-    1.  [Sensors](#sensors)
-    2.  [Object Detection Pipeline](#object-detection)
-7.  [Team Members](#team-members)
+1. [Repository Contents](#repository-contents)
+2. [Project Summary](#project-summary)
+3. [Key Features](#key-features)
+4. [Hardware Components](#hardware-components)
+5. [Mobility System](#mobility-system)
+    1. [Steering](#steering)
+    2. [Motor Drive](#motor-drive)
+    3. [Power System](#power-system)
+6. [Detection System](#detection-system)
+    1. [Sensors](#sensors)
+    2. [Object Detection Pipeline](#object-detection-pipeline)
+7. [Software](#software)
+8. [Team Members](#team-members)
+
 ---
 
-# Content 📁📁
+# Repository Contents
 
 * `t-photos` contains 2 photos of the team (an official one and one funny photo with all team members)
 * `v-photos` contains 6 photos of the vehicle (from every side, from top and bottom)
@@ -28,20 +30,24 @@ This repository contains engineering materials of a self-driven vehicle's model 
 * `src` contains code of control software for all components which were programmed to participate in the competition
 * `models` is for the files for models used by 3D printers, laser cutting machines and CNC machines to produce the vehicle elements. If there is nothing to add to this location, the directory can be removed.
 * `other` is for other files which can be used to understand how to prepare the vehicle for the competition. It may include documentation how to connect to a SBC/SBM and upload files there, datasets, hardware specifications, communication protocols descriptions etc. If there is nothing to add to this location, the directory can be removed.
+
 ---
 
-# SUMMARY 📝📝
+# Project Summary
+
 - This project is a **self driving vehicle** which we have designed for the *WRO Future Engineers 2025 Challenge*
 - The aim is for the bot to complete the challenges while scoring full points
 
-### KEY FEATURES ‼️:
+## Key Features
+
 - We use an IMU (Intertial Measurment Unit) to calculate how many turns the car has taken and to ensure stabilization
 - Front wheels are used for steering and the back wheels are using for powering the car.
 - The car has two ultrasonic sensors attached to the front of the car. One faces the right and the other faces forward. These ultrasonic sensors dictate how the car moves and detects obstacles in the car's path
 - POWER: 2S LiPo for powering the DC Hobby Gear Motor and ESP32, 2x 3.7 Li-Ion Batterys for powering the servo motors.
+
 ---
 
-# HARDWARE ⚙️🔩:
+# Hardware Components
 
 ### Components:
 
@@ -57,38 +63,38 @@ This repository contains engineering materials of a self-driven vehicle's model 
 - **L298N Motor Driver** --> Controls the DC Hobby Gear Motors and ensures they have the adequate power.
 - **IMU [BNO055]** --> Calculates the orientation of the vehicles and feeds that information to the ESP to calculate how many turns have been acheived by the vehicle
 
-### Mobility System 🏎️:
+## Mobility System
 
-  #### Steering: 
-  - **Mechanism**: Front wheels turn to steer.
-  - **Actuator**: A precise servo motor.
-  - **Implementation**: The servo turns a pivot connected to the wheels, which can still spin freely.
-  - **Function**: Lets the wheels roll while accurately controlling the direction of the car.
+### Steering
+- **Mechanism**: Front wheels turn to steer.
+- **Actuator**: A precise servo motor.
+- **Implementation**: The servo turns a pivot connected to the wheels, which can still spin freely.
+- **Function**: Lets the wheels roll while accurately controlling the direction of the car.
 
-  #### Motor Drive:
-  - **Primary Motor**: A single DC gear motor.
-  - **Drive System**: Directly powers the back wheels.
-  - **Control Method**: Uses PWM to control speed.
-  - **Performance**: Provides steady power for smooth acceleration.
+### Motor Drive
+- **Primary Motor**: A single DC gear motor.
+- **Drive System**: Directly powers the back wheels.
+- **Control Method**: Uses PWM to control speed.
+- **Performance**: Provides steady power for smooth acceleration.
 
-  #### Power: 
-  - x2 3.7 Volt Lithium Ion Batteries [These batteries power the servo motor for steering)
-  - x1 LiPo Battery [11V] --> Powers the ESP32 and the L298N Motor Driver
-  - Powerbank --> Powers the RaspberryPi
+### Power System
+- x2 3.7 Volt Lithium Ion Batteries (These batteries power the servo motor for steering)
+- x1 LiPo Battery [11V] --> Powers the ESP32 and the L298N Motor Driver
+- Powerbank --> Powers the RaspberryPi
 
-### Detection System 🕵️🕵️
+## Detection System
 
-  #### Sensors:
-  - **x2 UltraSonic Sensors**: Detects obstacles around the vehicle. One is facing right and the other is facing foward
-  - **IMU (BNO055)**: Checks the orienation of the vehicle and gives feedback to the car. This allows the car to calculate the number of turns it has taken and allows the vehicle to stop accordingly
-  - **RPi Cam**: Provides a live video feed to the RaspberryPi which is used to detect obstacles.
+### Sensors
+- **x2 UltraSonic Sensors**: Detects obstacles around the vehicle. One is facing right and the other is facing foward
+- **IMU (BNO055)**: Checks the orienation of the vehicle and gives feedback to the car. This allows the car to calculate the number of turns it has taken and allows the vehicle to stop accordingly
+- **RPi Cam**: Provides a live video feed to the RaspberryPi which is used to detect obstacles.
 
-  #### Object Detection:
-  - **RPi Cam**: Provides us with real-time footage which is then sent to the Raspberry Pi
-  - **Raspberry Pi**: The Raspberry Pi recieves the footage sent by the `RPi Cam` and analyzes it detecting obstacles using `OpenCV`. The Raspberry Pi then sends this information to the ESP allowing it to adjust the motors suitably
-  - **UltraSonic Sensors**: Used for `precise wall-detection` to ensure that out car turns and dodges the walls.
+### Object Detection Pipeline
+- **RPi Cam**: Provides us with real-time footage which is then sent to the Raspberry Pi
+- **Raspberry Pi**: The Raspberry Pi recieves the footage sent by the `RPi Cam` and analyzes it detecting obstacles using `OpenCV`. The Raspberry Pi then sends this information to the ESP allowing it to adjust the motors suitably
+- **UltraSonic Sensors**: Used for `precise wall-detection` to ensure that out car turns and dodges the walls.
 
-# SOFTWARE 💻💻:
+# Software
 
 ### Video Feed Analysis:
 - For processing our video feed we used `Python's OpenCV`
@@ -98,7 +104,7 @@ This repository contains engineering materials of a self-driven vehicle's model 
 - IMU and accurate calculations to ensure that the bot completes the correct amount of turns before stopping
 - `Wall Following` and `Corner Detection` to ensure out car is able to steer clear of the walls and stay on the correct path.
      
-## TEAM MEMBERS
+## Team Members
  * Samesh Deshmukh - samesh.kostub@gmail.com
  * Rohan Mishra  - rohanmishra.email@gmail.com
  * Aadi Khemka - aadikhemka2020@gmail.com
