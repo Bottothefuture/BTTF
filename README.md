@@ -5,7 +5,7 @@ This repository contains engineering materials of a self-driven vehicle's model 
 
 # Table of Contents
 
-1.  [Repository Contents](#-repository-contents)
+1.  [Repository Contents](-#content-📁📁)
 2.  [Project Summary](#-summary)
 3.  [Key Features](#-key-features-)
 4.  [Hardware Components](#-hardware-)
