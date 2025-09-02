@@ -1,20 +1,23 @@
 #include <Wire.h>
-#include <MPU6050_tockn.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <utility/imumaths.h>
 #include <ESP32Servo.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiServer.h>
 
 // ==== PIN Definitions ====
+#define BUTTON_PIN 15 // GPIO pin for the push button
 
 #define IN1 13
 #define IN2 12
 #define ENA 25
 
 #define SERVO_PIN 4
-#define SERVO_LEFT 55
-#define SERVO_RIGHT 132
-#define SERVO_STRAIGHT 85
+#define SERVO_LEFT 25
+#define SERVO_RIGHT 145
+#define SERVO_STRAIGHT 94
 
 // Front Ultrasonic
 #define TRIG_FRONT 5
@@ -24,37 +27,53 @@
 #define TRIG_RIGHT 17
 #define ECHO_RIGHT 16
 
+// Left Ultrasonic
+#define TRIG_LEFT 26
+#define ECHO_LEFT 27
+
+// ==== Tuning Parameters ====
+const int REVERSE_DURATION_MS = 700;  // Milliseconds to reverse. Calibrate this for 10cm!
+
+// PI Controller for Yaw
+float Kp = 6.0;   // Proportional gain (how strongly it corrects)
+float Ki = 0.2;   // Integral gain (corrects long-term steady error)
+const float MAX_CORRECTION = 22.0; // Max steering correction from PI controller
+const float INTEGRAL_LIMIT = 150.0; // Prevents integral from getting too large
+const float DEADBAND = 0.6;    // How much error is acceptable before correcting
+
+// Speeds
+const int DRIVE_SPEED = 150;
+const int TURN_SPEED = 160;
+const int REVERSE_SPEED = 120;
+
 // ==== Global Variables ====
-MPU6050 mpu6050(Wire);
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 Servo steeringservo;
 
-// Lap counting variables
-int turn_count = 0;        // Count of 90-degree turns made
-int lap_count = 0;         // Number of laps completed
-int turns_per_lap = 4;     // Assume 4 turns per lap initially (will be auto-detected)
-bool first_lap = true;     // Flag to detect first lap completion
+// Lap counting
+int turn_count = 0;
+int lap_count = 0;
+int turns_per_lap = 4;
+bool first_lap = true;
 
-// Starting position detection
-float starting_front_distance = 0;  // Store front distance at start
-bool starting_position_recorded = false;
-bool returning_to_start = false;    // Flag when looking for starting position
+// State management
+bool returning_to_start = false;
+bool inTurn = false; // Flag to disable PI controller during turns
 
-// IMU drift compensation
+// IMU and Position
 float yawOffset = 0;
-unsigned long lastDriftReset = 0;
-const unsigned long DRIFT_RESET_INTERVAL = 30000; // Reset drift every 30 seconds
+float targetYaw = 0;
+float yawErrorIntegral = 0;
+float starting_front_distance = 0;
+bool starting_position_recorded = false;
 
-// ==== WiFi Credentials ====
+// WiFi & Telnet for Debugging
 const char* ssid = "Airtel_yolabs_apr";
 const char* password = "yolabs4321";
-
-// ==== Telnet Server ====
 WiFiServer telnetServer(23);
 WiFiClient telnetClient;
 
-bool start = false;
-
-// ==== Setup Telnet Logging ====
+// ==== WiFi and Logging Functions ====
 void setupWiFiTelnet() {
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
@@ -71,21 +90,18 @@ void setupWiFiTelnet() {
   Serial.println("Telnet server started");
 }
 
-// ==== Handle Telnet Clients (place in loop) ====
 void handleTelnetClient() {
   if (telnetServer.hasClient()) {
     if (!telnetClient || !telnetClient.connected()) {
       if (telnetClient) telnetClient.stop();
       telnetClient = telnetServer.available();
       Serial.println("New Telnet client connected");
-      telnetClient.println("Welcome to ESP32 Telnet Server");
     } else {
-      telnetServer.available().stop();  // Reject multiple clients
+      telnetServer.available().stop();
     }
   }
 }
 
-// ==== Logging Function ====
 void logPrint(String msg) {
   Serial.println(msg);
   if (telnetClient && telnetClient.connected()) {
@@ -93,34 +109,26 @@ void logPrint(String msg) {
   }
 }
 
+// ==== Sensor and Motor Functions ====
 float readUltrasonicDistance(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-  
-  long duration = pulseIn(echoPin, HIGH, 30000); // Wait for echo, timeout after 30ms
-  if (duration == 0) return 999.0; // Return max distance if no echo
-  
-  float distance = duration * 0.034 / 2.0; // Convert to cm
-  return (distance > 0 && distance < 400) ? distance : 999.0; // Valid range
+  long duration = pulseIn(echoPin, HIGH, 30000);
+  if (duration == 0) return 999.0;
+  float distance = duration * 0.034 / 2.0;
+  return (distance > 0 && distance < 400) ? distance : 999.0;
 }
 
-// Get compensated yaw angle with drift correction
 float getCompensatedYaw() {
-  // Reset drift compensation every 30 seconds when robot is stationary
-  if (millis() - lastDriftReset > DRIFT_RESET_INTERVAL) {
-    // Only reset if we're going relatively straight (no major turns recently)
-    float currentYaw = mpu6050.getAngleZ();
-    if (abs(currentYaw - yawOffset) < 5.0) { // If drift is small, reset
-      yawOffset = currentYaw;
-      lastDriftReset = millis();
-      Serial.println("Yaw drift reset");
-    }
-  }
-  
-  return mpu6050.getAngleZ() - yawOffset;
+  sensors_event_t orientationData;
+  bno.getEvent(&orientationData, Adafruit_BNO055::VECTOR_EULER);
+  float currentYaw = orientationData.orientation.x;
+  // Convert 0-360 range to -180 to 180 for easier calculations
+  if (currentYaw > 180) currentYaw -= 360;
+  return currentYaw - yawOffset;
 }
 
 void driveForward(int speed) {
@@ -141,305 +149,223 @@ void stopMotors() {
   analogWrite(ENA, 0);
 }
 
-void moveBackwardToSafeDistance() {
-  Serial.println("Too close! Moving backward to safe distance...");
-  
-  float frontDist;
-  do {
-    driveBackward(120); // Slow backward movement
-    delay(100);
-    
-    // Read front distance
-    frontDist = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
-    Serial.print("Moving back... Front distance: ");
-    Serial.println(frontDist);
-    
-  } while (frontDist < 40 && frontDist != 999.0); // Continue until 40-50cm range
-  
+// ==== Navigation Logic ====
+void reverseBeforeTurn() {
+  logPrint("Reversing before turn...");
+
+  // Drive backward for a fixed duration
+  driveBackward(REVERSE_SPEED);
+  delay(REVERSE_DURATION_MS);
+
+  // Stop the vehicle and pause briefly to settle before turning
   stopMotors();
   delay(200);
-  Serial.println("Safe distance reached!");
+
+  logPrint("Reversing complete. Initiating turn.");
 }
 
-void turnLeft() {
-  steeringservo.write(SERVO_LEFT);
-  driveForward(150); // Adjust speed as needed
-  delay(500); // Allow time for the servo to turn
-}
+void maintainHeading(float currentYaw) {
+  if (inTurn) return; // Disable PI controller during a turn
 
-void turnRight() {
-  steeringservo.write(SERVO_LEFT);
-  driveForward(150); // Adjust speed as needed
-  delay(500); // Allow time for the servo to turn
+  float error = targetYaw - currentYaw;
+  // Handle angle wrap-around
+  if (error > 180.0) error -= 360.0;
+  if (error < -180.0) error += 360.0;
+
+  // If we're close enough, just go straight
+  if (fabs(error) < DEADBAND) {
+    yawErrorIntegral *= 0.9; // Decay the integral slowly
+    steeringservo.write(SERVO_STRAIGHT);
+    return;
+  }
+
+  yawErrorIntegral += error;
+  // Prevent integral wind-up
+  if (yawErrorIntegral > INTEGRAL_LIMIT) yawErrorIntegral = INTEGRAL_LIMIT;
+  if (yawErrorIntegral < -INTEGRAL_LIMIT) yawErrorIntegral = -INTEGRAL_LIMIT;
+
+  float correction = (Kp * error) + (Ki * yawErrorIntegral);
+
+  // Clamp the correction value
+  if (correction > MAX_CORRECTION) correction = MAX_CORRECTION;
+  if (correction < -MAX_CORRECTION) correction = -MAX_CORRECTION;
+
+  int steeringAngle = SERVO_STRAIGHT + (int)round(correction);
+  if (steeringAngle < SERVO_LEFT) steeringAngle = SERVO_LEFT;
+  if (steeringAngle > SERVO_RIGHT) steeringAngle = SERVO_RIGHT;
+
+  steeringservo.write(steeringAngle);
 }
 
 void turnRight90Degrees() {
-  Serial.println("=== STARTING RIGHT TURN ===");
-  //stopMotors();
-  //delay(200); // Brief stop before turning
-  
-  // Test servo before starting turn
-  Serial.println("Testing servo movement...");
+  inTurn = true;
+  logPrint("=== STARTING RIGHT TURN ===");
+
   steeringservo.write(SERVO_RIGHT);
-  Serial.print("Servo commanded to: ");
-  Serial.println(SERVO_RIGHT);
-  delay(500); // Give servo time to move
-  
-  // Initialize angle change tracking
-  mpu6050.update();
-  float startYaw = getCompensatedYaw();
-  float angleChanged = 0;
-  float lastYaw = startYaw;
-  
-  Serial.print("Starting relative turn from: ");
-  Serial.print(startYaw, 1);
-  Serial.println("°");
-  
-  // Turn right with steering and drive forward
-  driveForward(150); // Slower speed for more precise turning
-  Serial.println("Driving forward while turning...");
-  
-  unsigned long turnStartTime = millis();
-  const unsigned long MAX_TURN_TIME = 10000; // Maximum 10 seconds for safety
-
-  // Keep turning until we've changed 85-90 degrees (account for some error)
-  while (millis() - turnStartTime < MAX_TURN_TIME && abs(angleChanged) < 100) {
-    mpu6050.update();
-    float currentYaw = getCompensatedYaw();
-    
-    // Calculate the change in angle from last reading
-    float deltaAngle = currentYaw - lastYaw;
-    
-    // Handle angle wrapping for delta calculation
-    if (deltaAngle > 180) {
-      deltaAngle -= 360;
-    } else if (deltaAngle < -180) {
-      deltaAngle += 360;
-    }
-    
-    // Accumulate the angle change
-    angleChanged += deltaAngle;
-    lastYaw = currentYaw;
-    
-    // Print progress every 200ms
-    if (millis() % 200 < 50) {
-      Serial.print("Angle changed: ");
-      Serial.print(angleChanged, 1);
-      Serial.print("° (Current: ");
-      Serial.print(currentYaw, 1);
-      Serial.println("°)");
-    }
-    
-    delay(20); // Small delay for stability
-  }
-  
-  // Stop and straighten steering
-  Serial.println("Stopping motors and straightening servo...");
-  Serial.print("Total angle changed: ");
-  Serial.print(angleChanged, 1);
-  Serial.println("°");
-  
-  //stopMotors();
-  //delay(200);
-  steeringservo.write(SERVO_STRAIGHT);
-  Serial.print("Servo commanded to straight: ");
-  Serial.println(SERVO_STRAIGHT);
   delay(300);
+  driveForward(TURN_SPEED);
   
-  // Increment turn counter for lap tracking
-  turn_count++;
-  Serial.print("Turn completed! Total turns: ");
-  Serial.print(turn_count);
+  // Wait until the turn is mostly complete
+  float turnTarget = targetYaw + 89.5;
+  if (turnTarget > 180.0) turnTarget -= 360.0;
   
-  // Check for lap completion
-  if (first_lap) {
-    // For first lap, we don't know how many turns per lap yet
-    Serial.print(" (First lap in progress)");
-  } else {
-    Serial.print(" (Lap ");
-    Serial.print(lap_count + 1);
-    Serial.print(" in progress)");
+  unsigned long turnStart = millis();
+  while(true) {
+    float error = turnTarget - getCompensatedYaw();
+    if (error > 180.0) error -= 360.0;
+    if (error < -180.0) error += 360.0;
+
+    if (fabs(error) < 8.0) break; // Exit loop when close to target
+    if (millis() - turnStart > 4000) { // Safety timeout
+      logPrint("!! Turn timeout !!");
+      break;
+    }
+    delay(20);
   }
-  Serial.println();
+
+  // Stop and stabilize
+  stopMotors();
+  delay(200);
+  steeringservo.write(SERVO_STRAIGHT);
+  delay(400);
+
+  // ### CRUCIAL FIX ###
+  // Set the new target heading precisely based on the previous one.
+  targetYaw += 90.0;
+  if (targetYaw > 180.0) targetYaw -= 360.0;
   
-  Serial.println("=== Relative angle turn completed ===");
+  yawErrorIntegral = 0; // Reset PI integral to prevent jerky correction
+  turn_count++;
+  inTurn = false;
+  
+  logPrint("=== RIGHT TURN COMPLETED! New Target: " + String(targetYaw, 1) + " ===");
 }
 
+void turnLeft90Degrees() {
+  inTurn = true;
+  logPrint("=== STARTING LEFT TURN ===");
 
-void leftTurn() {
-  Serial.println("=== STARTING LEFT TURN ===");
-  //stopMotors();
-  //delay(200); // Brief stop before turning
-  
-  // Test servo before starting turn
-  Serial.println("Testing servo movement...");
   steeringservo.write(SERVO_LEFT);
-  Serial.print("Servo commanded to: ");
-  Serial.println(SERVO_LEFT);
-  delay(500); // Give servo time to move
-  
-  // Initialize angle change tracking
-  mpu6050.update();
-  float startYaw = getCompensatedYaw();
-  float angleChanged = 0;
-  float lastYaw = startYaw;
-  
-  Serial.print("Starting relative turn from: ");
-  Serial.print(startYaw, 1);
-  Serial.println("°");
-  
-  // Turn right with steering and drive forward
-  driveForward(150); // Slower speed for more precise turning
-  Serial.println("Driving forward while turning...");
-  
-  unsigned long turnStartTime = millis();
-  const unsigned long MAX_TURN_TIME = 10000; // Maximum 10 seconds for safety
-
-  // Keep turning until we've changed 85-90 degrees (account for some error)
-  while (millis() - turnStartTime < MAX_TURN_TIME && abs(angleChanged) < 133) {
-    mpu6050.update();
-    float currentYaw = getCompensatedYaw();
-    
-    // Calculate the change in angle from last reading
-    float deltaAngle = currentYaw - lastYaw;
-    
-    // Handle angle wrapping for delta calculation
-    if (deltaAngle > 180) {
-      deltaAngle -= 360;
-    } else if (deltaAngle < -180) {
-      deltaAngle += 360;
-    }
-    
-    // Accumulate the angle change
-    angleChanged += deltaAngle;
-    lastYaw = currentYaw;
-    
-    // Print progress every 200ms
-    if (millis() % 200 < 50) {
-      Serial.print("Angle changed: ");
-      Serial.print(angleChanged, 1);
-      Serial.print("° (Current: ");
-      Serial.print(currentYaw, 1);
-      Serial.println("°)");
-    }
-    
-    delay(20); // Small delay for stability
-  }
-  
-  // Stop and straighten steering
-  Serial.println("Stopping motors and straightening servo...");
-  Serial.print("Total angle changed: ");
-  Serial.print(angleChanged, 1);
-  Serial.println("°");
-
-  //stopMotors();
-  //delay(200);
-  steeringservo.write(SERVO_STRAIGHT);
-  Serial.print("Servo commanded to straight: ");
-  Serial.println(SERVO_STRAIGHT);
   delay(300);
-  
-  // Increment turn counter for lap tracking
-  turn_count++;
-  Serial.print("Turn completed! Total turns: ");
-  Serial.print(turn_count);
-  
-  // Check for lap completion
-  if (first_lap) {
-    // For first lap, we don't know how many turns per lap yet
-    Serial.print(" (First lap in progress)");
-  } else {
-    Serial.print(" (Lap ");
-    Serial.print(lap_count + 1);
-    Serial.print(" in progress)");
-  }
-  Serial.println();
-  
-  Serial.println("=== Relative angle turn completed ===");
-}
+  driveForward(TURN_SPEED);
 
+  float turnTarget = targetYaw - 89.5;
+  if (turnTarget < -180.0) turnTarget += 360.0;
 
+  unsigned long turnStart = millis();
+  while(true) {
+    float error = turnTarget - getCompensatedYaw();
+    if (error > 180.0) error -= 360.0;
+    if (error < -180.0) error += 360.0;
 
-
-// testServo() removed for clean autonomous operation
-
-bool isAtStartingPosition(float currentFrontDistance) {
-  // Check if current front distance matches starting distance (within 5cm tolerance)
-  float tolerance = 5.0; // cm
-  return abs(currentFrontDistance - starting_front_distance) <= tolerance;
-}
-
-void recordStartingPosition() {
-  // Record the starting front distance
-  float frontDist = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
-  starting_front_distance = frontDist;
-  starting_position_recorded = true;
-  
-  Serial.println("========================");
-  Serial.print("STARTING POSITION RECORDED: ");
-  Serial.print(starting_front_distance, 1);
-  Serial.println("cm from front obstacle");
-  Serial.println("========================");
-}
-
-// Forward declaration to fix 'not declared in this scope' error
-void completeFirstLap();
-
-void checkLapCompletion() {
-  // Auto-complete first lap after 4 turns (typical for rectangular track)
-  if (first_lap && turn_count >= 4) {
-    Serial.println("Auto-detecting first lap completion after 4 turns...");
-    Serial.println("Continuing for more laps...");
-    completeFirstLap();
-    // Don't set returning_to_start here - continue lapping!
-    return;
-  }
-  
-  if (first_lap) {
-    // Still in first lap, keep counting turns
-    return;
-  }
-  
-  // For subsequent laps, check if we've made the required number of turns
-  if (turn_count >= (lap_count + 1) * turns_per_lap) {
-    lap_count++;
-    Serial.println("========================");
-    Serial.print("LAP ");
-    Serial.print(lap_count);
-    Serial.println(" COMPLETED!");
-    Serial.print("Total turns so far: ");
-    Serial.println(turn_count);
-    Serial.println("========================");
-    
-    // Check if we've completed the target number of laps
-    if (lap_count >= 3) { // Complete 3 laps first
-      Serial.println("TARGET LAPS COMPLETED! Now returning to starting position...");
-      returning_to_start = true; // Start looking for starting position instead of stopping immediately
+    if (fabs(error) < 8.0) break;
+    if (millis() - turnStart > 4000) {
+      logPrint("!! Turn timeout !!");
+      break;
     }
+    delay(20);
   }
+  
+  stopMotors();
+  delay(200);
+  steeringservo.write(SERVO_STRAIGHT);
+  delay(400);
+
+  // ### CRUCIAL FIX ###
+  // Set the new target heading precisely.
+  targetYaw -= 90.0;
+  if (targetYaw < -180.0) targetYaw += 360.0;
+  
+  yawErrorIntegral = 0; // Reset PI integral
+  turn_count++;
+  inTurn = false;
+  
+  logPrint("=== LEFT TURN COMPLETED! New Target: " + String(targetYaw, 1) + " ===");
 }
+
+void moveBackwardToSafeDistance() {
+  logPrint("Too close! Moving backward...");
+  driveBackward(REVERSE_SPEED);
+  
+  unsigned long startTime = millis();
+  while (readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT) < 40) {
+    if(millis() - startTime > 2000) break; // Safety timeout
+    delay(50);
+  }
+
+  stopMotors();
+  delay(200);
+  logPrint("Safe distance reached.");
+}
+
+// ==== Lap and Mission Logic ====
 void completeFirstLap() {
-  // Call this function when you determine the first lap is complete
-  // This sets the turns_per_lap for future lap counting
   if (first_lap) {
     turns_per_lap = turn_count;
     first_lap = false;
     lap_count = 1;
-    
-    Serial.println("========================");
-    Serial.println("FIRST LAP COMPLETED!");
-    Serial.print("Detected ");
-    Serial.print(turns_per_lap);
-    Serial.println(" turns per lap");
-    Serial.println("Starting lap counting...");
-    Serial.println("========================");
+    logPrint("========================");
+    logPrint("FIRST LAP COMPLETED! Detected " + String(turns_per_lap) + " turns per lap.");
+    logPrint("========================");
   }
 }
 
+void checkLapCompletion() {
+  if (first_lap && turn_count >= 4) {
+    completeFirstLap();
+    return;
+  }
+  if (first_lap) return;
+
+  if (turn_count >= turns_per_lap * (lap_count + 1)) {
+    lap_count++;
+    logPrint("========================");
+    logPrint("LAP " + String(lap_count) + " COMPLETED!");
+    logPrint("========================");
+    
+    if (lap_count >= 3) {
+      logPrint("TARGET LAPS COMPLETED! Now returning to start...");
+      returning_to_start = true;
+    }
+  }
+}
+
+void recordStartingPosition() {
+  starting_front_distance = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
+  starting_position_recorded = true;
+  logPrint("========================");
+  logPrint("STARTING POSITION RECORDED: " + String(starting_front_distance, 1) + "cm");
+  logPrint("========================");
+}
+
+void returnToStartNavigation(float distFront, float distRight) {
+  if (fabs(distFront - starting_front_distance) <= 5.0) {
+    logPrint("========================");
+    logPrint("STARTING POSITION REACHED! MISSION COMPLETE!");
+    logPrint("========================");
+    stopMotors();
+    while (true) { delay(1000); } // End of mission
+  }
+  
+  // Use normal navigation to get back
+  if (distFront < 75 && distRight > 90) {
+    turnRight90Degrees();
+  } else if (distFront < 70 && distRight < 75) {
+    turnLeft90Degrees();
+  } else {
+    driveForward(DRIVE_SPEED);
+    maintainHeading(getCompensatedYaw());
+  }
+}
+
+// ===================================================================
+// ============================= SETUP ===============================
+// ===================================================================
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   setupWiFiTelnet();
 
+  //pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(ENA, OUTPUT);
@@ -447,125 +373,97 @@ void setup() {
   pinMode(ECHO_FRONT, INPUT);
   pinMode(TRIG_RIGHT, OUTPUT);
   pinMode(ECHO_RIGHT, INPUT);
+  pinMode(TRIG_LEFT, OUTPUT);
+  pinMode(ECHO_LEFT, INPUT);
 
+  logPrint("Waiting for START command from Raspberry Pi...");
 
-  // Initialize Servo
+  // === Wait for RPi to send START ===
+  String input = "";
+  while (true) {
+    if (Serial.available()) {
+      char c = Serial.read();
+      if (c == '\n') break;
+      input += c;
+    }
+    if (input == "START") break;
+  }
+
+  logPrint("START command received from RPi!");
+  /*logPrint("Press and hold the button for 1 second to start...");
+  unsigned long buttonPressTime = millis();
+  while (true) {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+      if (millis() - buttonPressTime > 100) break;
+    } else {
+      buttonPressTime = millis();
+    }
+    delay(10);
+  }
+  logPrint("Button pressed! Initializing...");*/
+
   steeringservo.attach(SERVO_PIN);
-  steeringservo.write(SERVO_STRAIGHT); // Set initial position to straight
+  steeringservo.write(SERVO_STRAIGHT);
 
-  Wire.begin(21, 22); // SDA, SCL pins for I2C
-  mpu6050.begin();
+  Wire.begin(21, 22);
+  if (!bno.begin()) {
+    logPrint("FATAL: No BNO055 detected!");
+    while (1);
+  }
+  bno.setMode(OPERATION_MODE_NDOF);
+  delay(1000);
+
+  logPrint("Calibrating... Please wait.");
+  // Wait for the sensor to be at least partially calibrated
+  while(bno.getMode() != OPERATION_MODE_NDOF) {
+      delay(100);
+  }
+
+  yawOffset = getCompensatedYaw();
+  targetYaw = getCompensatedYaw();
+  yawErrorIntegral = 0;
   
-  Serial.println("Calibrating gyroscope... Keep robot STILL!");
-  mpu6050.calcGyroOffsets(true); // Calculate gyro offsets - KEEP THIS!
-  // DO NOT call mpu6050.setGyroOffsets(0, 0, 0) - it destroys calibration!
-  
-  Serial.println("IMU calibration complete!");
-  delay(1000); // Wait for MPU6050 to stabilize
-  
-  // Initialize yaw offset for drift compensation
-  mpu6050.update();
-  yawOffset = mpu6050.getAngleZ();
-  lastDriftReset = millis();
-  
-  // Record starting position after a brief delay
-  delay(2000); // Wait 2 seconds for sensors to stabilize
+  delay(1000);
   recordStartingPosition();
+  
+  logPrint("System initialized and ready to run!");
 }
 
-
+// ===================================================================
+// ============================== LOOP ===============================
+// ===================================================================
 void loop() {
+  handleTelnetClient();
 
-  if (Serial.available()) {
-    String data = Serial.readString();
-    data.trim();
-    Serial.println("Echo: " + data);
+  float yawNow = getCompensatedYaw();
+  float distFront = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
+  float distRight = readUltrasonicDistance(TRIG_RIGHT, ECHO_RIGHT);
+  float distLeft = readUltrasonicDistance(TRIG_LEFT, ECHO_LEFT);
 
-    if (data == "START") {
-      start = true;
+  if (returning_to_start) {
+    returnToStartNavigation(distFront, distRight);
+    return;
   }
+
+  checkLapCompletion();
+
+  if (distFront < 25) {
+    moveBackwardToSafeDistance();
+    //turnRight90Degrees(); // Make a turn after reversing to avoid getting stuck
+    return;
+  }
+  
+  if (distFront < 65 && distRight > 90 && distLeft < 90) {
+    reverseBeforeTurn();
+    turnRight90Degrees();
+
+  } else if (distFront < 65 && distLeft > 90 && distRight < 90) {
+     reverseBeforeTurn();
+    turnLeft90Degrees();
+  } else {
+    driveForward(DRIVE_SPEED);
+    maintainHeading(yawNow);
   }
 
-  while (start) {
-
-    // Handle telnet client and update sensors
-    handleTelnetClient();
-    mpu6050.update();
-    
-    // Manual control code removed for clean autonomous operation
-    
-    float yawNow = getCompensatedYaw(); // Use compensated yaw
-    float distFront = readUltrasonicDistance(TRIG_FRONT, ECHO_FRONT);
-    float distRight = readUltrasonicDistance(TRIG_RIGHT, ECHO_RIGHT);
-
-    // Log sensor data for debugging
-    String statusMsg = "Yaw:" + String(yawNow, 1) + ", Front:" + String(distFront, 1) + ", Right:" + String(distRight, 1) + 
-            ", Turns:" + String(turn_count) + ", Laps:" + String(lap_count);
-    
-    if (returning_to_start) {
-      statusMsg += ", RETURNING TO START (Target: " + String(starting_front_distance, 1) + "cm)";
-    }
-    
-    logPrint(statusMsg);
-    
-    // Check if we're returning to start and have reached starting position
-    if (returning_to_start && starting_position_recorded) {
-      if (isAtStartingPosition(distFront)) {
-        Serial.println("========================");
-        Serial.println("STARTING POSITION REACHED!");
-        Serial.print("Current front distance: ");
-        Serial.print(distFront, 1);
-        Serial.print("cm (Target: ");
-        Serial.print(starting_front_distance, 1);
-        Serial.println("cm)");
-        Serial.println("MISSION COMPLETE - STOPPING VEHICLE");
-        Serial.println("========================");
-        
-        stopMotors();
-        while (true) {
-          delay(1000);
-          Serial.println("Vehicle stopped at starting position");
-        }
-      }
-    }
-    
-    // Check lap completion
-    checkLapCompletion();
-    
-    // Main navigation logic with left/right turn
-    if (distFront < 25) {
-      // Too close - move backward to safe distance first
-      Serial.println("EMERGENCY: Too close to obstacle!");
-      moveBackwardToSafeDistance();
-      return; // Skip rest of loop iteration
-    }
-    else if (distFront < 75 && distRight > 90) {
-        // Right turn
-        Serial.println("Front obstacle detected, right open, turning right 90 degrees");
-        turnRight90Degrees();
-        driveForward(150);
-        delay(300);
-      }
-    else if (distFront < 70 && distRight < 75) {
-        // Left turn
-        Serial.println("Front obstacle detected, right blocked, turning left");
-        leftTurn();
-        driveForward(150);
-        delay(300);
-      }
-    else if (distRight > 90) {
-      // If right sensor detects opening (>90cm) AND no front obstacle, continue straight
-      Serial.println("Right opening detected, going straight");
-      steeringservo.write(SERVO_STRAIGHT);
-      driveForward(150);
-    } 
-    else {
-      // Default: drive forward
-      Serial.println("Driving forward");
-      steeringservo.write(SERVO_STRAIGHT);
-      driveForward(150);
-    }
-    
-    delay(100); // Control loop timing
-  }
+  delay(50);
 }
