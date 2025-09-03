@@ -79,8 +79,7 @@ This repository contains engineering materials of a self-driven vehicle's model 
 
 ### Power System
 - x2 3.7 Volt Lithium Ion Batteries (These batteries power the servo motor for steering)
-- x1 LiPo Battery [11V] --> Powers the ESP32 and the L298N Motor Driver
-- Powerbank --> Powers the RaspberryPi
+- x1 LiPo Battery [11V] --> Powers the ESP32, L298N Motor Driver and RaspberryPi
 - Bug [Step Down] Converter --> Reduces the voltage to 12V to ensure safety of the components
 
 ## Detection System
