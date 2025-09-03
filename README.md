@@ -53,10 +53,9 @@ This repository contains engineering materials of a self-driven vehicle's model 
 
 - **ESP32 Dev Board** --> Microcontroller which controls the motor and makes decisions based on the values given by the ultrasonic sensors.
 - **x2 3.7 Volt Lithium Ion Batterys** --> Power the servo motor for steering.
-- **x1 LiPo Battery [11V]** --> Powers the ESP32 and the L298N Motor Driver
+- **x1 LiPo Battery [11V]** --> Powers the ESP32, L298N Motor Driver and Raspberry Pi
 - **RaspberryPi5** --> Analysis of live video feed.
 - **RPi Cam** --> For a live video feed and obstacle detection
-- **Powerbank** --> Used for powering the RaspberryPi
 - **x2 Ultrasonic Sesnors**: Detect obstacles around the vehicle.
 - **DC Hobby Gear Motor** --> Powers the rear-wheels so that the car can move forward and backward.
 - **Servo Motor** --> Controls the steering of the car and ensures accurate turning.
