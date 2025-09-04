@@ -56,7 +56,7 @@ flowchart TD;
 - IMU (**BNO055**)
 - **Raspberry Pi5**
 - **RPi Cam** (For Obstacle Detection In The Second Round)
-- Sensors: Ultrasonic Sensors [**One facing front and the other facing to the right**]
+- Sensors: Ultrasonic Sensors [**One facing front and one facing to the right and the other facing to the left**]
 - **DC Motor** (Rear Wheel Movement)
 - **L298N** Motor Driver
 - Battery and Power: (**2x 3.7 Volt Batteries, 1 Li-ion battery**)
