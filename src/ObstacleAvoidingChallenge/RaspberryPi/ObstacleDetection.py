@@ -1,4 +1,13 @@
+# ==============================
+# Region-Based Obstacle Navigation for RPi5 + ESP32
+# Divides frame into 3 vertical regions for smart turning
+# ==============================
 
+import cv2
+import numpy as np
+from picamera2 import Picamera2
+import time
+import serial
 import RPi.GPIO as GPIO
 import board
 import busio
